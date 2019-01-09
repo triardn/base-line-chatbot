@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use LINE\LINEBot;
 use LINE\LINEBot\HTTPClient\CurlHTTPClient;
-use LINE\LINEBot\Exception\InvalidSignatureException;
-use LINE\LINEBot\Exception\InvalidEventRequestException;
 
 class WebhookController extends Controller
 {
@@ -41,20 +39,24 @@ class WebhookController extends Controller
         $body = file_get_contents('php://input');
         $this->signature = isset($_SERVER['HTTP_X_LINE_SIGNATURE']) ? $_SERVER['HTTP_X_LINE_SIGNATURE'] : '-';
 
-        try {
-            $events = $this->bot->parseEventRequest($body, $this->signature);
-        } catch (InvalidSignatureException $e) {
+        $channelSecret = env('CHANNEL_SECRET');
+
+        $hash = hash_hmac('sha256', $body, $channelSecret, true);
+        $signature = base64_encode($hash);
+
+        if ($this->signature != $signature) {
             return response()->json('Invalid Signature', 400);
-        } catch (InvalidEventRequestException $e) {
-            return response()->json('Invalid event request', 400);
-        }
-
-        $this->events = json_decode($body, true);
-
-        if ($event['type'] == 'message') {
-            // your playground
         } else {
-            // add bot
+            $this->events = json_decode($body, true);
+            if (is_array($this->events['events'])) {
+                foreach ($this->events['events'] as $event) {
+                    if ($event['type'] == 'message') {
+                        // your playground
+                    } else {
+                        // add bot
+                    }
+                }
+            }
         }
     }
 }
